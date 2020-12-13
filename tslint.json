@@ -1,0 +1,33 @@
+{
+  "extends": ["tslint:recommended", "tslint-config-prettier"],
+  "linterOptions": {
+    "exclude": [
+      "node_modules/**/*.ts",
+      "node_modules/**/*.d.ts",
+      "node_modules/**/*.js",
+      "lib/**/*.ts"
+    ]
+  },
+  "rules": {
+    "member-access": false,
+    "object-literal-sort-keys": false,
+    "semicolon": false,
+    "ban-types": false,
+    "no-trailing-whitespace": false,
+    "max-classes-per-file": [true, 20],
+    "no-unused-expression": false,
+    "no-console": [false],
+    "interface-name": false,
+    "no-shadowed-variable": false,
+    "no-string-literal": false
+  },
+  "jsRules": {
+    "member-access": false,
+    "object-literal-sort-keys": false,
+    "semicolon": false,
+    "no-trailing-whitespace": false,
+    "max-classes-per-file": [true, 20],
+    "no-console": [false],
+    "interface-name": false
+  }
+}

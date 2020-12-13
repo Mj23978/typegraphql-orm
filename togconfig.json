@@ -1,0 +1,6 @@
+{
+  "mainDir": "src",
+  "modelsDir": "models",
+  "orm": "TypeOrm",
+  "graphql": "TypeGraphql"
+}

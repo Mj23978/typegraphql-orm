@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    "target": "es2019",                       
+    "module": "CommonJS",                     
+    "lib": ["es2019", "ESNext.AsyncIterable"], 
+    "declaration": true,                      
+    "sourceMap": true,                        
+    "outDir": "./lib",                        
+    "rootDir": "./src",                       
+    "importHelpers": true,                    
+    "pretty": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "moduleResolution": "node",               
+    "esModuleInterop": true,                  
+    "experimentalDecorators": true,           
+    "emitDecoratorMetadata": true,
+    "baseUrl": "."
+  },
+  "exclude": [
+    "node_modules"
+  ],
+  "include": [
+    "src/**/*.ts"
+  ]
+}

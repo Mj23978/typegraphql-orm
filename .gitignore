@@ -1,0 +1,10 @@
+node_modules
+lib
+dist
+package
+tests/artifacts
+coverage
+.env
+*.exe
+*.x
+oclif.*.json
