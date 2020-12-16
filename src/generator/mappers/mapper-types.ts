@@ -128,7 +128,7 @@ export class InputType {
   typeName: string;
   type: InputClasses;
   hasJsonValue: boolean;
-  fields: InputField[];
+  fields: InputField[] = [];
   docs?: string;
 }
 

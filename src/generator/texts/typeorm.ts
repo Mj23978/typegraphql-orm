@@ -10,6 +10,7 @@ export class TypeOrmText {
   static updatedAtDecoratorName: string = "UpdateDateColumn";
   static createdAtDecoratorText: string = "";
   static updatedAtDecoratorText: string = "";
+  static baseEntityText: string = "BaseEntity";
   static createdAtDecoratorDefault = undefined;
   static updatedAtDecoratorDefault = undefined;
 

@@ -72,10 +72,10 @@ export class TogUser {
   @TogField()
   data?: JsonValue;
 
-  @TogField()
+  @TogField({type: "embedded"})
   metadata?: TogMetadata[];
 
-  @TogField()
+  @TogField({type: "embedded"})
   privateMetadata?: TogMetadata[];
 
 
@@ -122,10 +122,10 @@ export class TogPost {
   @TogField()
   textJson?: JsonValue;
 
-  @TogField()
+  @TogField({type: "embedded"})
   metadata?: TogMetadata[];
 
-  @TogField()
+  @TogField({type: "embedded"})
   privateMetadata?: TogMetadata[];
 
   @TogRelationField({

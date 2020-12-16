@@ -14,6 +14,8 @@ import {
 } from "./mapper-types";
 import { embeddedModels } from './embeddedModels';
 import { SupportedOrms } from '../config';
+import { logger } from "../logger";
+import { pascalCase } from 'change-case'
 
 
 export function mapperTog(data: ExtData, type: SupportedOrms): { models: Model[]; embeddedModels: EmbeddedModel[]} {
@@ -47,10 +49,12 @@ export function mapperTog(data: ExtData, type: SupportedOrms): { models: Model[]
 
     model.properties = filterFieldsForTog(model);
     let idField: string = "";
+    const embModels: [string, string][] = [["extend", res.extends]]
 
     // Get TogFields Metadata
     for (const field of model.properties) {
       const getField = createFieldForMapper(field, validationDecr, type)
+      getField.field.isEmbedded ? embModels.push([getField.field.name, getField.field.tsType.replace("[]", "")]): undefined
       getField.isId ? idField = getField.field.name : undefined
       if (field.type.type === "JsonValue") {
         res.hasJsonValue = true;
@@ -66,7 +70,26 @@ export function mapperTog(data: ExtData, type: SupportedOrms): { models: Model[]
         res.uniqueFields.push(getField.field.name);
       }
     }
+
     res.idField = idField;
+    logger.info(`${embModels}, ${embeddedModels.map(v => v.name)}`)
+    embModels.forEach(v => {
+      const model = embeddedModels.find(lv => lv.name === v[1])
+      if (model) {
+        res.uniqueFields.push(...model.uniqueFields)
+        res.embeddedFields.push(...model.fields.map(lv => {
+          const res = {...lv}
+          if (v[0] === "extend") {
+            return res
+          }
+          res.name = `${v[0]}${pascalCase(lv.name)}`
+          return res
+        }))
+        if (res.idField === "") {
+          model.idField ? res.idField = model.idField : undefined
+        }
+      }
+    })
     pushListUnique(models, res);
   }
   return { models, embeddedModels };
@@ -149,8 +172,8 @@ export function filterFieldsForTog(model: ExtModel): ExtProperty[] {
   }).map<ExtProperty>(field => {
     field.type.refType = field.type.refType?.replace("Tog", "");
     if (field.type.type === "Union") {
-      console.log(
-        `Warning : choose ${field.type.union[0].type} for ${field.name} field (cant generate for unions)`,
+      logger.warn(
+        `choose ${field.type.union[0].type} for ${field.name} field (cant generate for unions)`,
       );
       field.type.type = field.type.union[0].type;
       field.type.union[0].refType
@@ -206,5 +229,5 @@ function createFieldForMapper(field: ExtProperty, validationDecr: any[], type: S
   const types = getPropertyType(field, isFloat, fieldRes.isList);
   fieldRes.tsType = types.tsType;
   fieldRes.graphqlType = types.graphqlType;
-  return { field: fieldRes, indexed, unique, isEnum, isFloat, isId }
+  return { field: fieldRes, indexed, unique, isEnum, isId }
 }

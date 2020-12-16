@@ -7,4 +7,5 @@ coverage
 .env
 *.exe
 *.x
+*.log
 oclif.*.json

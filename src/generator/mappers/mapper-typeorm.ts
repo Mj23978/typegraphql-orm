@@ -56,9 +56,4 @@ export function createModelsFromTypeorm(data: ExtData) {
       }
     }
   }
-  console.log(modelNames);
-  console.log(decorators);
-  console.log(uniqueFields);
-  console.log(extendsBaseEntity);
-  console.log(customTypes);
 }

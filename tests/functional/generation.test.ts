@@ -18,7 +18,7 @@ describe("test generation", () => {
 
   it("should properly create models, args, inputs, resolvers and ... from tog files", async () => {
     const dir = path.resolve(__dirname, "..", "files");
-    await generateCode(outputDirPath, dir, "tog", undefined, true, true, "TypeGraphql", "MikroOrm", true, true, true, true, testProject);
+    await generateCode(outputDirPath, dir, "tog", undefined, true, true, "TypeGraphql", "MikroOrm", false, true, true, true, true, testProject);
     // const { UserCrudResolver } = require(outputDirPath +
     //   "/resolvers/User/UserCrudResolver.ts");
     // const graphQLSchema = await buildSchema({

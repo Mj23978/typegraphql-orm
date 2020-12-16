@@ -16,6 +16,7 @@ import {
   UnionTypeNode,
 } from "ts-morph";
 import { TogFieldOptions } from "../decorators/options/TogFieldOptions";
+import { logger } from "../logger";
 
 import {
   ExtData,
@@ -26,6 +27,7 @@ import {
   TsTypes,
   ImportModel,
   ExtEnum,
+  ExtEnumMember,
 } from "./extractor-types";
 
 export function exctractData(
@@ -289,7 +291,7 @@ export function handlePropValue(input: PropertyAssignment): any {
       try {
         return JSON.parse(jsonStr);
       } catch (err) {
-        console.log(jsonStr)
+        logger.log({ level: "error", message: jsonStr })
       }
     case SyntaxKind.FunctionExpression:
       const funcArg = value as FunctionExpression;
@@ -321,17 +323,17 @@ export function addEnumToProps(
   const modelsRes = models.map<ExtModel>(model => {
     model.properties = model.properties.map<ExtProperty>(property => {
       if (property.type.type === "enum") {
-        const enumFields: string[] = [];
+        const enumFields: ExtEnumMember[] = [];
         files.forEach(file => {
           file
             .getEnum(property.type.refType!)
             ?.getMembers()
-            .forEach(member => enumFields.push(member.getName()));
+            .forEach(member => enumFields.push({ name: member.getName(), value: member.getValue() || member.getName() }));
         });
         property.type.enumFields = enumFields;
         enumFields.length > 0
           ? enumsRes.push({
-              name: property.type.refType!,
+              name: property.type.refType!.replace("Tog", ""),
               members: property.type.enumFields,
             })
           : undefined;

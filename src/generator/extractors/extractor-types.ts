@@ -14,7 +14,12 @@ export class ExtModel {
 
 export class ExtEnum {
   name: string;
-  members: string[];
+  members: ExtEnumMember[];
+}
+
+export class ExtEnumMember {
+  name: string;
+  value: string | number;
 }
 
 export class ImportModel {
@@ -42,7 +47,7 @@ export class ExtPropType {
   type: TsTypes;
   refType?: string;
   union: ExtPropType[] = [];
-  enumFields: string[] = [];
+  enumFields: ExtEnumMember[] = [];
 }
 
 export declare type TsTypes =

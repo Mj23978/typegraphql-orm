@@ -50,13 +50,13 @@ export function generateTypeGraphQLImport(
   generateImport(sourceFile, "type-graphql", { namedImports: imports });
 }
 
-export function generateTypeOrmImport(sourceFile: SourceFile) {
-  const imports = ["Column", "Entity"];
+export function generateTypeOrmImport(sourceFile: SourceFile, others: string[] = []) {
+  const imports = ["Column", "Entity", ...others];
   generateImport(sourceFile, "typeorm", { namedImports: imports });
 }
 
-export function generateMikroOrmImport(sourceFile: SourceFile) {
-  const imports = ["Entity", "Property"];
+export function generateMikroOrmImport(sourceFile: SourceFile, others: string[] = []) {
+  const imports = ["Entity", "Property", ...others];
   generateImport(sourceFile, "@mikro-orm/core", { namedImports: imports });
 }
 

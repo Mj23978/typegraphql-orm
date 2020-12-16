@@ -31,18 +31,26 @@ export function createArgTypes(modelName: string, modelDocs: ModelDocs): ArgType
     isNullable: true,
   };
   const orderByArgField = {
-    tsType: `${modelName}WhereInput`,
+    tsType: `${modelName}OrderByInput`,
     isList: false,
-    name: "where",
+    name: "orderBy",
     isInput: true,
-    graphqlType: `${modelName}WhereInput`,
+    graphqlType: `${modelName}OrderByInput`,
+    isNullable: true,
+  };
+  const cursorArgField = {
+    tsType: `${modelName}WhereUniqueInput`,
+    isList: false,
+    isInput: true,
+    name: "cursor",
+    graphqlType: `${modelName}WhereUniqueInput`,
     isNullable: true,
   };
   const whereUniqueArgField = {
     tsType: `${modelName}WhereUniqueInput`,
     isList: false,
     isInput: true,
-    name: "cursor",
+    name: "where",
     graphqlType: `${modelName}WhereUniqueInput`,
     isNullable: true,
   };
@@ -66,7 +74,7 @@ export function createArgTypes(modelName: string, modelDocs: ModelDocs): ArgType
     tsType: `${modelName}UpdateInput`,
     isList: true,
     isInput: true,
-    name: "data",
+    name: "update",
     graphqlType: `${modelName}UpdateInput`,
     isNullable: false,
   };
@@ -86,7 +94,7 @@ export function createArgTypes(modelName: string, modelDocs: ModelDocs): ArgType
     args: [
       whereArgField,
       orderByArgField,
-      whereUniqueArgField,
+      cursorArgField,
       takeArgField,
       skipArgField,
     ],
@@ -149,7 +157,7 @@ export function createActions(modelName: string, modelPlural: string, modelMiddl
     actRes.kind = action;
     actRes.body = getStatements(action, type).map<string>(v =>
       replacOrmMessageTokens(v, {
-        catchErrFunc: "catchErrFunc",
+        catchErrFunc: "catchErrorWrapper",
         type: modelName,
       }),
     );
@@ -283,6 +291,15 @@ export function createInputTypes(modelName: string, modelFields: Field[], modelD
     const inputFields: InputField[] = [];
     modelFields
       .filter(field => {
+        if (
+          field.excludeFrom === ExcludeFieldFrom.graphql ||
+          field.excludeFrom === ExcludeFieldFrom.both
+        ) {
+          return false;
+        }
+        if (field.isOmitted?.includes(input)) {
+          return false;
+        }
         if (field.tsType === "JsonValue") {
           inpRes.hasJsonValue = true;
         }
@@ -301,15 +318,6 @@ export function createInputTypes(modelName: string, modelFields: Field[], modelD
             return false;
           }
         }
-        if (
-          field.excludeFrom === ExcludeFieldFrom.graphql ||
-          field.excludeFrom === ExcludeFieldFrom.both
-        ) {
-          return false;
-        }
-        if (field.isOmitted?.includes(input)) {
-          return false;
-        }
         return true;
       })
       .forEach(field => {
@@ -326,7 +334,7 @@ export function createInputTypes(modelName: string, modelFields: Field[], modelD
         inputFields.push(res);
       });
     if (input === "Create" || input === "Update" || input === "WhereUnique") {
-      inpRes.fields = inputFields;
+      inpRes.fields.push(...inputFields);
     }
     if (input === "OrderBy") {
       inpRes.hasJsonValue = false

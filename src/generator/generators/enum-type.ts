@@ -2,19 +2,19 @@ import { EnumMemberStructure, OptionalKind, Project } from "ts-morph";
 import path from "path";
 import { generateTypeGraphQLImport } from "./import";
 import { enumsFolderName } from "../config";
+import { ExtEnum } from "../extractors/extractor-types";
 
 export default function generateEnum(
   project: Project,
   baseDirPath: string,
-  enumName: string,
+  enm: ExtEnum,
   generate: boolean,
-  enumValues?: { name: string; value: string }[],
   overwrite: boolean = false,
   enumDocs?: string,
 ) {
   const filePath = path.resolve(
     baseDirPath,
-    generate ? `${enumsFolderName}/${enumName}.ts` : `${enumsFolderName}.ts`,
+    generate ? `${enumsFolderName}/${enm.name}.ts` : `${enumsFolderName}.ts`,
   );
   const sourceFile = project.createSourceFile(filePath, undefined, {
     overwrite,
@@ -25,25 +25,25 @@ export default function generateEnum(
   if (generate) {
     sourceFile.addEnum({
       isExported: true,
-      name: enumName,
+      name: enm.name,
       ...(enumDocs && { docs: [{ description: enumDocs }] }),
-      members: enumValues?.map<OptionalKind<EnumMemberStructure>>(
+      members: enm.members?.map<OptionalKind<EnumMemberStructure>>(
         ({ name, value }) => ({
           name,
-          value,
+          value: name,
         }),
       ),
     });
   }
 
   const exprExist = sourceFile.getStatement(statement => {
-    return statement.getText().includes(`registerEnumType(${enumName}`);
+    return statement.getText().includes(`registerEnumType(${enm.name}`);
   });
   if (exprExist === undefined) {
     sourceFile.addStatements([
       `
-registerEnumType(${enumName}, {
-  name: "${enumName}",
+registerEnumType(${enm.name}, {
+  name: "${enm.name}",
   description: ${enumDocs ? `"${enumDocs}"` : "undefined"},
 });`,
     ]);

@@ -17,6 +17,7 @@ your files are generated :)
   static flags = {
     help: flags.help({ char: "h" }),
     force: flags.boolean({ char: "f", default: false }),
+    verbose: flags.boolean({ char: "v", default: false }),
     mainDir: mainDir(),
     modelsDir: modelsDir({ exclusive: ["togDir"] }),
     togDir: togDir({ exclusive: ["modelsDir"] }),
@@ -35,17 +36,18 @@ your files are generated :)
 
   async run() {
     const { args, flags } = this.parse(GenAll);
-      generateCode(
-        flags.mainDir|| "./src",
-        `./${flags.mainDir}/${
-          args.modelType === "tog" ? flags.togDir : flags.modelsDir
-        }`,
-        args.modelType === "tog" ? "tog" : "library",
-        undefined,
-        flags.force,
-        true,
-        flags.graphql,
-        flags.orm
-      )
+    generateCode(
+      flags.mainDir || "./src",
+      `./${flags.mainDir}/${
+        args.modelType === "tog" ? flags.togDir : flags.modelsDir
+      }`,
+      args.modelType === "tog" ? "tog" : "library",
+      undefined,
+      flags.force,
+      true,
+      flags.graphql,
+      flags.orm,
+      flags.verbose,
+    );
   }
 }

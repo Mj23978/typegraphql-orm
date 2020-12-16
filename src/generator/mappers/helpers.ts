@@ -12,6 +12,7 @@ import { TogFieldOptions, TogOptions, TogRelationOptions } from '../decorators';
 import { typeOrmRelation } from './typeorm';
 import { SupportedOrms } from '../config';
 import { mikroOrmRelation } from './mikroorm';
+import { logger } from '../logger';
 
 export function pushListUnique<T>(list: T[], item: T) {
   const found = list.find(v => v === item);
@@ -33,8 +34,8 @@ export function getPropertyType(field: ExtProperty, isFloat: boolean, isList: bo
   } else if (field.type.type === "null" || field.type.type === "undefined") {
     tsType = "string";
     graphqlType = "String";
-    console.log(
-      "Warning : null and undifiend are invalid types (changed to string)",
+    logger.warn(
+      "null and undifiend are invalid types (changed to string)",
     );
   } else {
     tsType = field.type.type;
@@ -57,12 +58,11 @@ export function addModelName(res: Model, model: ExtModel) {
     res.name = model.name;
     res.resolverName = `${model.name}CrudResolver`;
     res.plural = pluralize.plural(model.name);
-  }
-  if (pluralize.isPlural(model.name)) {
+  } else if (pluralize.isPlural(model.name)) {
     res.plural = model.name;
     res.name = pluralize.singular(model.name);
-    console.log(
-      `Warning : Change Plural Model Name ${res.plural} to ${res.name}`,
+    logger.warn(
+      `Change Plural Model Name ${res.plural} to ${res.name}`,
     );
   }
 }

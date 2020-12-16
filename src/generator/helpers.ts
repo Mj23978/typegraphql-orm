@@ -43,9 +43,9 @@ export function mapTsToWhereType(tsType: string, isEnum: boolean = false, isList
       return isList ? "JsonListFilter" : "JsonFilter";
     default:
       if (isEnum) {
-        return isList ? `EnumList${tsType}` : `Enum${tsType}`
+        return isList ? `EnumList${tsType.replace("[]", "")}` : `Enum${tsType.replace("[]", "")}`
       }
-      return tsType
+      return tsType.replace("[]", "")
   }
 }
 

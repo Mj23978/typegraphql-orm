@@ -17,6 +17,7 @@ your files are generated :)
   static flags = {
     help: flags.help({ char: "h" }),
     force: flags.boolean({ char: "f", default: false }),
+    verbose: flags.boolean({ char: "v", default: false }),
     mainDir: mainDir(),
     modelsDir: modelsDir({ exclusive: ["togDir"] }),
     togDir: togDir({ exclusive: ["modelsDir"] }),
@@ -74,6 +75,7 @@ your files are generated :)
         true,
         flags.graphql,
         flags.orm,
+        flags.verbose,
         args.models,
         args.args,
         args.inputs,

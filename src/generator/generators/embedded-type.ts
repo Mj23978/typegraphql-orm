@@ -39,8 +39,8 @@ export default function generateEmbeddedModelType(
     generateGraphQLJsonImport(sourceFile);
   }
   ormType === "MikroOrm"
-    ? generateMikroOrmImport(sourceFile)
-    : generateTypeOrmImport(sourceFile);
+    ? generateMikroOrmImport(sourceFile, ["EntityManager"])
+    : generateTypeOrmImport(sourceFile, ["BaseEntity"]);
 
   sourceFile.addClass({
     name: model.name,

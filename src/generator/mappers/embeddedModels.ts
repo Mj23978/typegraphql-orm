@@ -54,46 +54,50 @@ export function embeddedModels(type: SupportedOrms): EmbeddedModel[] {
   };
   createdAtField.isOmitted = [InputClasses.create, InputClasses.update];
 
+  const extend =
+    type === "TypeOrm"
+      ? TypeOrmText.baseEntityText
+      : MikroOrmText.baseEntityText;
   const togBase = new EmbeddedModel();
-  togBase.extends = "BaseEntity";
+  togBase.extends = extend;
   togBase.name = "TogBase";
 
   const togBaseI = new EmbeddedModel();
-  togBaseI.extends = "BaseEntity";
+  togBaseI.extends = extend;
   togBaseI.name = "TogBaseI";
   togBaseI.idField = "id";
   togBaseI.fields.push(idField);
 
   const togBaseIC = new EmbeddedModel();
-  togBaseIC.extends = "BaseEntity";
+  togBaseIC.extends = extend;
   togBaseIC.name = "TogBaseIC";
   togBaseIC.idField = "id";
   togBaseIC.fields.push(idField, createdAtField);
 
   const togBaseICU = new EmbeddedModel();
-  togBaseICU.extends = "BaseEntity";
+  togBaseICU.extends = extend;
   togBaseICU.name = "TogBaseICU";
   togBaseICU.idField = "id";
   togBaseICU.fields.push(idField, createdAtField, updatedAtField);
 
   const togBaseIU = new EmbeddedModel();
-  togBaseIU.extends = "BaseEntity";
+  togBaseIU.extends = extend;
   togBaseIU.name = "TogBaseIU";
   togBaseIU.idField = "id";
   togBaseIU.fields.push(idField, updatedAtField);
 
   const togBaseU = new EmbeddedModel();
-  togBaseU.extends = "BaseEntity";
+  togBaseU.extends = extend;
   togBaseU.name = "TogBaseU";
   togBaseU.fields.push(updatedAtField);
 
   const togBaseC = new EmbeddedModel();
-  togBaseC.extends = "BaseEntity";
+  togBaseC.extends = extend;
   togBaseC.name = "TogBaseC";
   togBaseC.fields.push(createdAtField);
 
   const togBaseCU = new EmbeddedModel();
-  togBaseCU.extends = "BaseEntity";
+  togBaseCU.extends = extend;
   togBaseCU.name = "TogBaseC";
   togBaseCU.fields.push(createdAtField, updatedAtField);
 

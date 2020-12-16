@@ -64,4 +64,6 @@ export const importPreference: UserPreferences = {
 export const formatSetting: FormatCodeSettings = {
   insertSpaceAfterOpeningAndBeforeClosingNonemptyParenthesis: true,
   insertSpaceBeforeFunctionParenthesis: true,
+  baseIndentSize: 2,
+  
 };

@@ -10,6 +10,7 @@ export class MikroOrmText {
   static updatedAtDecoratorName: string = "Property";
   static createdAtDecoratorText: string = "";
   static updatedAtDecoratorText: string = "{ onUpdate: () => new Date() }";
+  static baseEntityText: string = "EntityManager";
   static createdAtDecoratorDefault = "new Date()";
   static updatedAtDecoratorDefault = "new Date()";
 

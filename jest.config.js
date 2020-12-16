@@ -5,7 +5,6 @@ module.exports = {
   testMatch: ["<rootDir>/tests/**/*.ts"],
   testPathIgnorePatterns: [
     "<rootDir>/tests/helpers",
-    "<rootDir>/tests/expected",
     "<rootDir>/tests/files",
     "<rootDir>/tests/artifacts",
     "<rootDir>/tests/.*integration.*",
