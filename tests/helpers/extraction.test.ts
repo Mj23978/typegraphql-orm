@@ -1,9 +1,9 @@
 import "reflect-metadata";
 import { promises as fs } from "fs";
 
-import generateArtifactsDirPath from "../helpers/artifacts-dir";
+import generateArtifactsDirPath from "./artifacts-dir";
 import { exctractData } from "../../src/generator/extractors/extractor";
-import { testProject } from "../helpers/project";
+import { testProject } from "./project";
 import path from "path";
 
 describe("test extracting models", () => {

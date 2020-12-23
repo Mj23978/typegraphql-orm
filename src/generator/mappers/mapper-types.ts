@@ -6,6 +6,9 @@ export class Model {
   fields: Field[] = [];
   embeddedFields: Field[] = [];
   relationFields: Field[] = [];
+  args: ArgType[] = [];
+  actions: Action[] = [];
+  inputs: InputType[] = [];
   uniqueFields: string[] = [];
   enumFields: string[] = [];
   indexedFields: string[] = [];
@@ -20,6 +23,7 @@ export class Model {
 export class EmbeddedModel {
   name: string;
   extends: string;
+  base: boolean = false;
   fields: Field[] = [];
   uniqueFields: string[] = [];
   enumFields: string[] = [];

@@ -25,18 +25,13 @@ import {
 } from "./import";
 import generateArgsType from "./args-type";
 import { exctractData } from "../extractors/extractor";
-import { mapperTog } from "../mappers/mapper-tog";
-import {
-  createActions,
-  createArgTypes,
-  createInputTypes,
-} from "../mappers/map-components";
-import { ExtData, ExtEnum } from "../extractors/extractor-types";
-import { EmbeddedModel, Model } from "../mappers/mapper-types";
-import generateEmbeddedModelType from "./embedded-type";
+import { MapperTog } from "../mappers/mapper-tog";
+import { ExtEnum } from "../extractors/extractor-types";
 import { Project, SourceFile } from "ts-morph";
 import { createFileGenerator } from "./helpers";
-import { logger, loggerOptions } from "../logger";
+import { logger } from "../logger";
+import { GenEmbModel, GenModel } from "./gen-types";
+import { generateCommonInputs } from "./common-inputs";
 
 export default async function generateCode(
   baseDir: string,
@@ -62,54 +57,61 @@ export default async function generateCode(
   const modelsDirPath = path.resolve(baseDir, modelsFolderName);
 
   const rawData = exctractData(proj, togDir);
-  const allModels = mapperTog(rawData, ormType);
+  rawData.enums.push({
+    name: "SortOrder",
+    members: [{name: "asc", value: "ASC"}, {name: "desc", value: "DESC"}]
+  })
+  const allModels = new MapperTog(rawData, ormType);
 
   const allFiles: SourceFile[] = [];
-  const modelNames = allModels.models.map<string>(v => v.name);
+  const modelNames = allModels.modelsOut.map<string>(v => v.name);
+  allModels.createFilters(rawData.enums.map<string>(v => v.name.replace("Tog", "")));
 
   try {
     if (genEnums && genModels) {
-      logger.log({ level: "verbose", message: "Generating enums..." });
+      logger.verbose("Generating enums...");
       allFiles.push(
-        ...generateEnums(type, overwrite, modelsDirPath, rawData.enums),
+        ...generateEnums(proj, type, overwrite, modelsDirPath, rawData.enums),
       );
     }
 
     if (justFor && genModels) {
-      // generateModelsBarrel(overwrite, modelsDirPath, modelNames);
+      // generateModelsBarrel(proj, overwrite, modelsDirPath, modelNames);
     } else if (genModels) {
-      logger.log({ level: "verbose", message: "Generating models..." });
-      generateModelsBarrel(overwrite, modelsDirPath, modelNames);
+      logger.verbose("Generating models...");
+      generateModelsBarrel(proj, overwrite, modelsDirPath, modelNames);
     }
   } catch (err) {
-    logger.log({ level: "verbose", message: err });
+    logger.warn(err);
   }
 
-  logger.log({ level: "verbose", message: "Generating embedded models ..." });
+  logger.verbose("Generating embedded models ...");
   try {
     if (genModels) {
       allFiles.push(
         ...generateEmbeddedModel(
+          proj,
           overwrite,
           modelsDirPath,
-          allModels.embeddedModels,
+          allModels.emModelsOut,
           ormType,
         ),
       );
     }
   } catch (err) {
-    logger.log({ level: "verbose", message: err });
+    logger.warn(err);
   }
 
-  logger.log({ level: "verbose", message: "Generating model components..." });
+  logger.verbose("Generating model components..." );
   try {
     if (justFor) {
       allFiles.push(
         ...generateModelComponents(
+          proj,
           overwrite,
           modelsDirPath,
           resolversDirPath,
-          allModels.models.filter(v => v.name === justFor),
+          allModels.modelsOut.filter(v => v.name === justFor),
           ormType,
           genModels,
           genArgs,
@@ -120,10 +122,11 @@ export default async function generateCode(
     } else {
       allFiles.push(
         ...generateModelComponents(
+          proj,
           overwrite,
           modelsDirPath,
           resolversDirPath,
-          allModels.models,
+          allModels.modelsOut,
           ormType,
           genModels,
           genArgs,
@@ -133,21 +136,41 @@ export default async function generateCode(
       );
     }
   } catch (err) {
-    logger.log({ level: "verbose", message: err });
+    logger.warn(err);
   }
 
   if (!justFor) {
-    generateArgsIndex(overwrite, resolversDirPath, modelNames);
-    generateIndex(overwrite, resolversDirPath, modelNames);
+    logger.verbose(`Generating filters...`);
+    const inputsPath = path.resolve(resolversDirPath, inputsFolderName);
+    const inputsBarrelExportSourceFile = proj.createSourceFile(
+      path.resolve(inputsPath, "index.ts"),
+      undefined,
+      { overwrite },
+    );
+    generateInputsBarrelFile(inputsBarrelExportSourceFile, [
+      ...allModels.filtersOut.map(v => v.name),
+      "IndivitualResponse", "BatchPayload"
+    ]);
+
+    allModels.filtersOut.forEach(filter => {
+      allFiles.push(generateInputType(proj, inputsPath, filter, overwrite));
+    });
+    generateCommonInputs(proj, inputsPath, overwrite)
+  }
+
+  if (!justFor) {
+    generateArgsIndex(proj, overwrite, resolversDirPath, modelNames);
+    generateIndex(proj, overwrite, resolversDirPath, modelNames);
   }
 
   allFiles.forEach(file => {
     createFileGenerator(file);
   });
-  await project.save();
+  await proj.save();
 }
 
 function generateEnums(
+  project: Project,
   type: "tog" | "library",
   overwrite: boolean,
   modelsDirPath: string,
@@ -166,7 +189,7 @@ function generateEnums(
     );
   }
   enums.forEach(v => {
-    logger.log({ level: "verbose", message: `Generating ${v.name} Enum` });
+    logger.verbose(`Generating ${v.name} Enum`);
     files.push(
       generateEnum(
         project,
@@ -182,25 +205,24 @@ function generateEnums(
 }
 
 function generateEmbeddedModel(
+  project: Project,
   overwrite: boolean,
   modelsDirPath: string,
-  models: EmbeddedModel[],
+  models: GenEmbModel[],
   ormType: SupportedOrms,
 ) {
   const files: SourceFile[] = [];
   models.forEach(v => {
-    logger.log({
-      level: "verbose",
-      message: `Generating ${v.name} Embedded Model`,
-    });
+    logger.verbose(`Generating ${v.name} Embedded Model`);
     files.push(
-      generateEmbeddedModelType(project, modelsDirPath, v, ormType, overwrite),
+      generateModelType(project, modelsDirPath, v, ormType, true, overwrite),
     );
   });
   return files;
 }
 
 function generateModelsBarrel(
+  project: Project,
   overwrite: boolean,
   modelsDirPath: string,
   modelNames: string[],
@@ -214,11 +236,12 @@ function generateModelsBarrel(
 }
 
 function generateArgsIndex(
+  project: Project,
   overwrite: boolean,
   resolversDirPath: string,
   modelNames: string[],
 ) {
-  logger.log({ level: "verbose", message: "Generating Args index file" });
+  logger.verbose("Generating Args index file");
   const argsIndexSourceFile = project.createSourceFile(
     path.resolve(resolversDirPath, "args.index.ts"),
     undefined,
@@ -228,11 +251,12 @@ function generateArgsIndex(
 }
 
 function generateIndex(
+  project: Project,
   overwrite: boolean,
   resolversDirPath: string,
   modelNames: string[],
 ) {
-  logger.log({ level: "verbose", message: "Generating index file" });
+  logger.verbose("Generating index file");
   const indexSourceFile = project.createSourceFile(
     resolversDirPath + "/index.ts",
     undefined,
@@ -242,10 +266,11 @@ function generateIndex(
 }
 
 function generateModelComponents(
+  project: Project,
   overwrite: boolean,
   modelsDirPath: string,
   resolversDirPath: string,
-  models: Model[],
+  models: GenModel[],
   ormType: SupportedOrms,
   genModels: boolean,
   genArgs: boolean,
@@ -256,20 +281,14 @@ function generateModelComponents(
 
   models.forEach(model => {
     if (genModels) {
-      logger.log({
-        level: "verbose",
-        message: `Generating ${model.name} model...`,
-      });
+      logger.verbose(`Generating ${model.name} model...`);
       files.push(
-        generateModelType(project, modelsDirPath, model, ormType, overwrite),
+        generateModelType(project, modelsDirPath, model, ormType, false, overwrite),
       );
     }
 
     if (genInputs) {
-      logger.log({
-        level: "verbose",
-        message: `Generating ${model.name} input types...`,
-      });
+      logger.verbose(`Generating ${model.name} input types...`);
       const inputPath = path.resolve(
         resolversDirPath,
         model.name,
@@ -280,34 +299,21 @@ function generateModelComponents(
         undefined,
         { overwrite },
       );
-      const inputTypes = createInputTypes(model.name, [...model.fields, ...model.embeddedFields], model.docs);
       generateInputsBarrelFile(
         inputsBarrelExportSourceFile,
-        inputTypes.map(v => v.typeName),
+        model.inputs.map(v => v.name),
       );
 
-      inputTypes.forEach(inputType => {
+      model.inputs.forEach(inputType => {
         files.push(generateInputType(project, inputPath, inputType, overwrite));
       });
     }
 
     if (genArgs) {
-      logger.log({
-        level: "verbose",
-        message: `Generating ${model.name} crud resolvers args...`,
-      });
+      logger.verbose(`Generating ${model.name} crud resolvers args...`);
       const argsDirPath = path.resolve(resolversDirPath, model.name);
-      const argTypes = createArgTypes(model.name, model.docs);
-      argTypes.forEach(arg => {
-        files.push(
-          generateArgsType(
-            project,
-            argsDirPath,
-            arg,
-            overwrite,
-            model.hasJsonValue,
-          ),
-        );
+      model.args.forEach(arg => {
+        files.push(generateArgsType(project, argsDirPath, arg, overwrite));
       });
       const barrelExportSourceFile = project.createSourceFile(
         path.resolve(argsDirPath, argsFolderName, "index.ts"),
@@ -316,38 +322,20 @@ function generateModelComponents(
       );
       generateArgsBarrelFile(
         barrelExportSourceFile,
-        argTypes.map<string>(v => v.name),
+        model.args.map<string>(v => v.name),
       );
     }
 
     if (genResolvers) {
-      logger.log({
-        level: "verbose",
-        message: `Generating ${model.name} crud resolvers...`,
-      });
-      const actions = createActions(
-        model.name,
-        model.plural,
-        model.middlewares,
-        model.docs,
-        ormType,
-      );
+      logger.verbose(`Generating ${model.name} crud resolvers...`);
       files.push(
         generateCrudResolver(
           project,
           resolversDirPath,
-          model.name,
-          model.resolverName,
-          model.docs,
-          actions,
+          model.action,
           overwrite,
         ),
       );
-      // const crudResolversBarrelExportSourceFile = project.createSourceFile(
-      //   path.resolve(resolversDirPath, "resolvers-crud.index.ts"),
-      //   undefined,
-      //   { overwrite },
-      // );
       const crudResolversIndexSourceFile = project.createSourceFile(
         path.resolve(resolversDirPath, model.name, "index.ts"),
         undefined,
@@ -355,7 +343,7 @@ function generateModelComponents(
       );
       generateResolversIndexFile(
         crudResolversIndexSourceFile,
-        model.resolverName,
+        model.action.name,
       );
     }
   });

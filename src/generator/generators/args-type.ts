@@ -7,14 +7,13 @@ import {
   generateGraphQLJsonImport,
   generateImport,
 } from "./import";
-import { ArgType } from "../mappers/mapper-types";
+import { GenArg } from "./gen-types";
 
 export default function generateArgsTypeClass(
   project: Project,
   generateDirPath: string,
-  argType: ArgType,
+  argType: GenArg,
   overwrite: boolean = true,
-  hasJsonValue: boolean = false,
 ) {
   const dirPath = path.resolve(generateDirPath, argsFolderName);
   const filePath = path.resolve(dirPath, `${argType.name.replace("Args", ".args")}.ts`);
@@ -23,11 +22,8 @@ export default function generateArgsTypeClass(
   });
 
   generateTypeGraphQLImport(sourceFile, ["ArgsType", "Field", "Int"]);
-  if (hasJsonValue) {
-    generateGraphQLJsonImport(sourceFile);
-  }
   generateImport(sourceFile, "../inputs", {
-    namedImports: argType.args.filter(v => v.isInput).map<string>(v => v.tsType),
+    namedImports: argType.inputs,
   });
 
   sourceFile.addClass({
@@ -37,28 +33,15 @@ export default function generateArgsTypeClass(
     ...(argType.docs && {
       docs: [{ description: argType.docs }],
     }),
-    decorators: [
-      {
-        name: "ArgsType",
-        arguments: [],
-      },
-    ],
-    properties: argType.args.map<OptionalKind<PropertyDeclarationStructure>>(
+    decorators: argType.decorators,
+    properties: argType.fields.map<OptionalKind<PropertyDeclarationStructure>>(
       arg => {
         return {
           name: arg.name,
-          type: arg.tsType,
+          type: arg.type,
           hasQuestionToken: arg.isNullable,
           trailingTrivia: "\r\n",
-          decorators: [
-            {
-              name: "Field",
-              arguments: [
-                `_type => ${arg.graphqlType}`,
-                `{ nullable: ${arg.isNullable} }`,
-              ],
-            },
-          ],
+          decorators: arg.decorators
         };
       },
     ),

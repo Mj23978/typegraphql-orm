@@ -2,7 +2,7 @@ import 'reflect-metadata'
 import { IsAlpha, IsEmail, MaxLength, MinLength } from 'class-validator';
 import { Tog, TogField, TogRelationField } from '../../src/index'
 import { TogRole } from './ext-enum';
-import { TogMetadata } from '../functional/embedded';
+import { TogMetadata } from './embedded';
 import { JsonValue } from 'type-fest';
 import { ExcludeFieldFrom } from '../../src/generator/mappers/mapper-types';
 
@@ -11,13 +11,13 @@ import { ExcludeFieldFrom } from '../../src/generator/mappers/mapper-types';
   createdAt: true,
   updatedAt: true,
   middlewares: {
-    create: ["Authenticate", "Authorize([role.Customer])"],
-    delete: ["Authenticate", "Authorize([role.Customer])"],
-    deleteMany: ["Authenticate", "Authorize([role.Customer])"],
-    findMany: ["Authenticate", "Authorize([role.Customer])"],
-    findUnique: ["Authenticate", "Authorize([role.Customer])"],
-    update: ["Authenticate", "Authorize([role.Customer])"],
-    updateMany: ["Authenticate", "Authorize([role.Customer])"],
+    create: ["Authenticate", "Authorize([Role.Customer])"],
+    delete: ["Authenticate", "Authorize([Role.Customer])"],
+    deleteMany: ["Authenticate", "Authorize([Role.Customer])"],
+    findMany: ["Authenticate", "Authorize([Role.Customer])"],
+    findUnique: ["Authenticate", "Authorize([Role.Customer])"],
+    update: ["Authenticate", "Authorize([Role.Customer])"],
+    updateMany: ["Authenticate", "Authorize([Role.Customer])"],
   },
   decorators: [
     {
@@ -67,7 +67,7 @@ export class TogUser {
   avatar?: string;
 
   @TogField({ index: true, type: "enum" })
-  role: TogRole;
+  Role: TogRole;
 
   @TogField()
   data?: JsonValue;
@@ -96,13 +96,13 @@ export class TogUser {
   createdAt: true,
   updatedAt: true,
   middlewares: {
-    create: ["Authenticate", "Authorize([role.Customer])"],
-    delete: ["Authenticate", "Authorize([role.Customer])"],
-    deleteMany: ["Authenticate", "Authorize([role.Customer])"],
-    findMany: ["Authenticate", "Authorize([role.Customer])"],
-    findUnique: ["Authenticate", "Authorize([role.Customer])"],
-    update: ["Authenticate", "Authorize([role.Customer])"],
-    updateMany: ["Authenticate", "Authorize([role.Customer])"],
+    create: ["Authenticate", "Authorize([Role.Customer])"],
+    delete: ["Authenticate", "Authorize([Role.Customer])"],
+    deleteMany: ["Authenticate", "Authorize([Role.Customer])"],
+    findMany: ["Authenticate", "Authorize([Role.Customer])"],
+    findUnique: ["Authenticate", "Authorize([Role.Customer])"],
+    update: ["Authenticate", "Authorize([Role.Customer])"],
+    updateMany: ["Authenticate", "Authorize([Role.Customer])"],
   },
 })
 export class TogPost {
@@ -133,5 +133,5 @@ export class TogPost {
     modelField: "posts",
     type: "m2o",
   })
-  posts: TogUser;
+  user: TogUser;
 }

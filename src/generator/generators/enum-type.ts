@@ -30,7 +30,7 @@ export default function generateEnum(
       members: enm.members?.map<OptionalKind<EnumMemberStructure>>(
         ({ name, value }) => ({
           name,
-          value: name,
+          value,
         }),
       ),
     });

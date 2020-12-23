@@ -1,11 +1,11 @@
 import "reflect-metadata";
 import { promises as fs } from "fs";
 
-import generateArtifactsDirPath from "../helpers/artifacts-dir";
+import generateArtifactsDirPath from "./artifacts-dir";
 import { exctractData } from "../../src/generator/extractors/extractor";
-import { testProject } from "../helpers/project";
+import { testProject } from "./project";
 import path from "path";
-import { mapperTog } from "../../src/generator/mappers/mapper-tog";
+import { MapperTog } from "../../src/generator/mappers/mapper-tog";
 
 describe("test mapping models", () => {
   let outputDirPath: string;
@@ -18,6 +18,6 @@ describe("test mapping models", () => {
   it("should properly map extracted models to right models, args, inputs, resolvers and ..", async () => {
     const dir = path.resolve(__dirname, "..", "files");
     const rawData = exctractData(testProject, dir);
-    const models = mapperTog(rawData, "MikroOrm")
+    const models = new MapperTog(rawData, "MikroOrm")
   });
 });

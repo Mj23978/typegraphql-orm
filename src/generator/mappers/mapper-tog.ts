@@ -1,233 +1,253 @@
-import {
-  addModelName,
-  addOptionsForModel,
-  addOptionsForRelation,
-  getPropertyType,
-  pushListUnique,
-} from "./helpers";
+import { pascalCase } from "change-case";
+import { SupportedOrms } from "../config";
+import { TogFieldOptions, TogOptions, TogRelationOptions } from "../decorators";
 import { ExtData, ExtModel, ExtProperty } from "../extractors/extractor-types";
-import { TogFieldOptions, TogOptions, TogRelationOptions } from '../decorators';
+import { icuEmbeddedModels } from "./embeddedModels";
+import { pushListUnique } from "./helpers";
+import { Mapper } from "./interfaces";
 import {
-  Model,
-  Field,
+  createActions,
+  createArgTypes,
+  createInputTypes,
+} from "./map-components";
+import { createMikroOrmFilters } from "./map-filter-mikro-orm";
+import { createTypeOrmFilters } from "./map-filters-typeorm";
+import {
+  CrudMiddleware,
   EmbeddedModel,
+  Field,
+  InputClasses,
+  Model,
+  ModelDocs,
 } from "./mapper-types";
-import { embeddedModels } from './embeddedModels';
-import { SupportedOrms } from '../config';
-import { logger } from "../logger";
-import { pascalCase } from 'change-case'
+import { MikroOrmMapper } from "./mikroorm";
+import { TypeGraphqlMapper } from "./typegraphql";
+import { TypeOrmMapper } from "./typeorm";
 
+export class MapperTog extends Mapper {
+  validationDecr: string[] = [];
 
-export function mapperTog(data: ExtData, type: SupportedOrms): { models: Model[]; embeddedModels: EmbeddedModel[]} {
-  const models: Model[] = [];
-  const embeddedModels: EmbeddedModel[] = [];
-  const validationDecr: string[] = [];
+  constructor(data: ExtData, type: SupportedOrms) {
+    super();
+    this.ormType = type;
+    this.graphqlType = "TypeGraphql";
+    this.graphqlMapper = new TypeGraphqlMapper()
+    type === "MikroOrm"
+      ? (this.ormMapper = new MikroOrmMapper())
+      : (this.ormMapper = new TypeOrmMapper());
+    data.imports
+      .filter(v => v.moduleName === "class-validator")
+      .forEach(v => {
+        this.validationDecr.push(...v.namedImports, v.defaultImport || "");
+      });
 
-  data.imports
-    .filter(v => v.moduleName === "class-validator")
-    .forEach(v => {
-      validationDecr.push(...v.namedImports, v.defaultImport || "");
-    });
+    this.emModelsIn.push(...this.genEmbeddedModels(data.models));
+    
+    for (const model of this.filterClass(data.models, ["Tog"])) {
+      const res = new Model();
 
-  embeddedModels.push(...embeddedModelsForTog(data.models, type, validationDecr));
-  data.models = filterModelsForTog(data.models);
-
-  // Get Class Name, Decorators, Fields Metadata
-  for (const model of data.models) {
-    const res = new Model();
-    addModelName(res, model)
-
-    // Get Tog Decorator Metadata
-    for (const decr of model.decorators) {
-      if (decr.name === "Tog") {
-        if (decr.properties[0]) {
-          const togOpts = decr.properties[0] as TogOptions;
-          addOptionsForModel(res, togOpts);
+      this.addModelName(res, model);
+      for (const decr of model.decorators) {
+        if (decr.name === "Tog") {
+          if (decr.properties[0]) {
+            const togOpts = decr.properties[0] as TogOptions;
+            this.addOptionsForModel(res, togOpts);
+          }
         }
       }
+      model.properties = this.filterFields(model, [
+        "TogField",
+        "TogRelationField",
+      ]);
+      this.createFields(res, model);
+      const inputFields = [...res.fields]
+      console.log(res.extends)
+      this.emModelsIn.filter(v => res.extends === v.name).forEach(model => {
+        inputFields.push(...model.fields)
+      })
+      res.inputs.push(...createInputTypes(res.name, inputFields, res.docs));
+      res.args.push(...createArgTypes(res.name, res.docs));
+      res.actions.push(
+        ...createActions(
+          res.name,
+          res.plural,
+          res.middlewares,
+          res.docs,
+          this.ormMapper.texts,
+        ),
+      );
+      pushListUnique(this.modelsIn, res);
     }
+    this.map()
+  }
 
-    model.properties = filterFieldsForTog(model);
+  createFilters(enums: string[]): void {
+    this.filtersOut = this.ormType === "MikroOrm" ? createMikroOrmFilters(enums,
+      this.emModelsOut.filter(v => {
+        if (v.base) {
+          return false
+        }
+        return true
+      }).map<string>(model => model.name)) : createTypeOrmFilters(enums)
+  }
+
+  genEmbeddedModels(models: ExtModel[]): EmbeddedModel[] {
+    const embRes = this.filterClass(models, ["TogEmbedded"]).map<EmbeddedModel>(
+      model => {
+        const res = new EmbeddedModel();
+        res.name = model.name.replace("Tog", "");
+        model.properties = this.filterFields(model, [
+          "TogField",
+          "TogRelationField",
+        ]);
+        this.createFields(res, model);
+        return res;
+      },
+    );
+    embRes.push(...icuEmbeddedModels(this.ormMapper.texts));
+    return embRes;
+  }
+
+  createFields(model: Model | EmbeddedModel, rawModel: ExtModel) {
     let idField: string = "";
-    const embModels: [string, string][] = [["extend", res.extends]]
+    const embModels: [string, string][] = [["extend", model.extends]];
 
-    // Get TogFields Metadata
-    for (const field of model.properties) {
-      const getField = createFieldForMapper(field, validationDecr, type)
-      getField.field.isEmbedded ? embModels.push([getField.field.name, getField.field.tsType.replace("[]", "")]): undefined
-      getField.isId ? idField = getField.field.name : undefined
+    for (const field of rawModel.properties) {
+      const getField = this.createField(field);
+      getField.field.isEmbedded
+        ? embModels.push([
+            getField.field.name,
+            getField.field.tsType.replace("[]", ""),
+          ])
+        : undefined;
+      getField.isId ? (idField = getField.field.name) : undefined;
       if (field.type.type === "JsonValue") {
-        res.hasJsonValue = true;
+        model.hasJsonValue = true;
       }
-      res.fields.push(getField.field);
+      model.fields.push(getField.field);
       if (getField.indexed) {
-        res.indexedFields.push(getField.field.name);
+        model.indexedFields.push(getField.field.name);
       }
       if (getField.isEnum) {
-        res.enumFields.push(getField.field.name);
+        model.enumFields.push(getField.field.name);
       }
       if (getField.unique) {
-        res.uniqueFields.push(getField.field.name);
+        model.uniqueFields.push(getField.field.name);
       }
     }
-
-    res.idField = idField;
-    logger.info(`${embModels}, ${embeddedModels.map(v => v.name)}`)
+    model.idField = idField;
     embModels.forEach(v => {
-      const model = embeddedModels.find(lv => lv.name === v[1])
-      if (model) {
-        res.uniqueFields.push(...model.uniqueFields)
-        res.embeddedFields.push(...model.fields.map(lv => {
-          const res = {...lv}
-          if (v[0] === "extend") {
-            return res
-          }
-          res.name = `${v[0]}${pascalCase(lv.name)}`
-          return res
-        }))
-        if (res.idField === "") {
-          model.idField ? res.idField = model.idField : undefined
+      const emModel = this.emModelsIn.find(lv => lv.name === v[1]);
+      if (emModel) {
+        model.uniqueFields.push(...emModel.uniqueFields);
+        if (model instanceof Model) {
+          model.embeddedFields.push(
+            ...emModel.fields.map(lv => {
+              const res = { ...lv };
+              if (v[0] === "extend") {
+                return res;
+              }
+              res.name = `${v[0]}${pascalCase(lv.name)}`;
+              return res;
+            }),
+          );
+        }
+        if (model.idField === "") {
+          emModel.idField ? (model.idField = emModel.idField) : undefined;
         }
       }
-    })
-    pushListUnique(models, res);
+    });
   }
-  return { models, embeddedModels };
-}
 
-
-export function filterModelsForTog(models: ExtModel[]): ExtModel[] {
-  return models
-    .filter(v => {
-      const validNames = ["Tog"];
-      let res = false;
-      v.decorators.forEach(v2 => {
-        if (validNames.includes(v2.name)) {
-          res = true;
-        }
-      });
-      return res;
-    })
-    .map<ExtModel>(model => {
-      model.name = model.name.replace("Tog", "");
-      return model;
-    });
-}
-
-
-export function embeddedModelsForTog(models: ExtModel[], type: SupportedOrms, validationDecr): EmbeddedModel[] {
-  const embRes = models
-    .filter(v => {
-      const validNames = ["TogEmbedded"];
-      let res = false;
-      v.decorators.forEach(v2 => {
-        if (validNames.includes(v2.name)) {
-          res = true;
-        }
-      });
-      return res;
-    })
-    .map<EmbeddedModel>(model => {
-      const res = new EmbeddedModel()
-      res.name = model.name.replace("Tog", "")
-      model.properties = filterFieldsForTog(model);
-      let idField: string = "";
-
-      for (const field of model.properties) {
-        const getField = createFieldForMapper(field, validationDecr, type);
-        getField.isId ? (idField = getField.field.name) : undefined;
-        if (field.type.type === "JsonValue") {
-          res.hasJsonValue = true;
-        }
-        res.fields.push(getField.field);
-        if (getField.indexed) {
-          res.indexedFields.push(getField.field.name);
-        }
-        if (getField.isEnum) {
-          res.enumFields.push(getField.field.name);
-        }
-        if (getField.unique) {
-          res.uniqueFields.push(getField.field.name);
+  createField(field: ExtProperty) {
+    const fieldRes = new Field();
+    fieldRes.name = field.name;
+    fieldRes.isNullable = field.isNullable;
+    fieldRes.isList = field.isList;
+    let indexed = false;
+    let unique = false;
+    let isEnum = false;
+    let isFloat = false;
+    let isId = false;
+    // Get Field Decorators Metadata
+    for (const decr of field.decorators) {
+      if (decr.name === "TogField") {
+        if (decr.properties[0]) {
+          const togOpts = decr.properties[0] as TogFieldOptions;
+          fieldRes.default = togOpts.default;
+          fieldRes.alias = togOpts.alias;
+          fieldRes.docs = togOpts.docs;
+          fieldRes.decorators.push(...(togOpts.decorators || []));
+          fieldRes.isOmitted = togOpts.exclude;
+          fieldRes.excludeFrom = togOpts.hidden;
+          indexed = togOpts.index ? togOpts.index : false;
+          unique = togOpts.unique ? togOpts.unique : false;
+          fieldRes.isUnique = unique;
+          fieldRes.isIndex = indexed;
+          isEnum = togOpts.type === "enum" ? true : false;
+          isFloat = togOpts.type === "float" ? true : false;
+          fieldRes.isEnum = isEnum;
+          fieldRes.isFloat = isFloat;
+          isId = togOpts.type === "pk" ? true : false;
+          fieldRes.isEmbedded = togOpts.type === "embedded" ? true : false;
         }
       }
-      res.idField = idField;
-
-      return res;
-    });
-  embRes.push(...embeddedModels(type))
-  return embRes
-}
-
-
-export function filterFieldsForTog(model: ExtModel): ExtProperty[] {
-  return model.properties.filter(v => {
-    const validNames = ["TogField", "TogRelationField"];
-    let res = false;
-    v.decorators.forEach(v2 => {
-      if (validNames[v2.name] === undefined) {
-        res = true;
+      if (decr.name === "TogRelationField") {
+        const relOpts = decr.properties[0] as TogRelationOptions;
+        this.addOptionsForRelation(fieldRes, relOpts);
       }
-    });
-    return res;
-  }).map<ExtProperty>(field => {
-    field.type.refType = field.type.refType?.replace("Tog", "");
-    if (field.type.type === "Union") {
-      logger.warn(
-        `choose ${field.type.union[0].type} for ${field.name} field (cant generate for unions)`,
-      );
-      field.type.type = field.type.union[0].type;
-      field.type.union[0].refType
-        ? (field.type.refType = field.type.union[0].refType)
-        : undefined;
-    }
-    return field;
-  });
-}
-
-
-function createFieldForMapper(field: ExtProperty, validationDecr: any[], type: SupportedOrms) {
-  const fieldRes = new Field();
-  fieldRes.name = field.name;
-  fieldRes.isNullable = field.isNullable;
-  fieldRes.isList = field.isList;
-  let indexed = false;
-  let unique = false;
-  let isEnum = false;
-  let isFloat = false;
-  let isId = false;
-  // Get Field Decorators Metadata
-  for (const decr of field.decorators) {
-    if (decr.name === "TogField") {
-      if (decr.properties[0]) {
-        const togOpts = decr.properties[0] as TogFieldOptions;
-        fieldRes.default = togOpts.default;
-        fieldRes.alias = togOpts.alias;
-        fieldRes.docs = togOpts.docs;
-        fieldRes.decorators.push(...(togOpts.decorators || []));
-        fieldRes.isOmitted = togOpts.exclude;
-        fieldRes.excludeFrom = togOpts.hidden;
-        indexed = togOpts.index ? togOpts.index : false;
-        unique = togOpts.unique ? togOpts.unique : false;
-        fieldRes.isUnique = unique;
-        fieldRes.isIndex = indexed;
-        isEnum = togOpts.type === "enum" ? true : false;
-        isFloat = togOpts.type === "float" ? true : false;
-        fieldRes.isEnum = isEnum;
-        fieldRes.isFloat = isFloat;
-        isId = togOpts.type === "pk" ? true : false
-        fieldRes.isEmbedded = togOpts.type === "embedded" ? true : false
+      if (this.validationDecr.includes(decr.name)) {
+        fieldRes.decorators.push({ name: decr.name, text: decr.propText });
       }
     }
-    if (decr.name === "TogRelationField") {
-      const relOpts = decr.properties[0] as TogRelationOptions;
-      addOptionsForRelation(fieldRes, relOpts, type);
-    }
-    if (validationDecr.includes(decr.name)) {
-      fieldRes.decorators.push({ name: decr.name, text: decr.propText });
+    const types = this.getPropertyType(field, isFloat, fieldRes.isList);
+    fieldRes.tsType = types.tsType;
+    fieldRes.graphqlType = types.graphqlType;
+    return { field: fieldRes, indexed, unique, isEnum, isId };
+  }
+
+  addOptionsForModel(res: Model, togOpts: TogOptions) {
+    res.alias = togOpts.alias;
+    res.decorators.push(...(togOpts.decorators || []));
+    res.docs = togOpts.docs || new ModelDocs();
+    res.middlewares = togOpts.middlewares || new CrudMiddleware();
+    if (togOpts.createdAt) {
+      if (togOpts.updatedAt) {
+        if (togOpts.id) {
+          res.extends = "TogBaseICU";
+        } else {
+          res.extends = "TogBaseCU";
+        }
+      } else if (togOpts.id) {
+        res.extends = "TogBaseIC";
+      } else {
+        res.extends = "TogBaseC";
+      }
+    } else if (togOpts.updatedAt) {
+      if (togOpts.id) {
+        res.extends = "TogBaseIU";
+      } else {
+        res.extends = "TogBaseU";
+      }
+    } else if (togOpts.id) {
+      res.extends = "TogBaseI";
+    } else {
+      res.extends = "TogBase";
     }
   }
-  const types = getPropertyType(field, isFloat, fieldRes.isList);
-  fieldRes.tsType = types.tsType;
-  fieldRes.graphqlType = types.graphqlType;
-  return { field: fieldRes, indexed, unique, isEnum, isId }
+
+  addOptionsForRelation(fieldRes: Field, relOpts: TogRelationOptions) {
+    fieldRes.isOmitted = [
+      InputClasses.create,
+      InputClasses.orderBy,
+      InputClasses.update,
+      InputClasses.whereUnique,
+      InputClasses.where,
+    ];
+    const resRels = this.ormMapper.genRelation(relOpts);
+    fieldRes.diffOrmDecorator = resRels[0];
+    const otherDecrs = resRels.reverse();
+    otherDecrs.pop();
+    fieldRes.decorators.push(...otherDecrs);
+  }
 }

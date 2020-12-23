@@ -5,23 +5,21 @@ import {
   DecoratorStructure,
 } from "ts-morph";
 import path from "path";
-
-import { formatSetting, importPreference } from "../config";
 import {
   generateTypeGraphQLImport,
   generateGraphQLJsonImport,
 } from "./import";
-import { InputClasses, InputType } from "../mappers/mapper-types";
+import { GenInput } from "./gen-types";
 
 export function generateInputType(
   project: Project,
   dirPath: string,
-  inputType: InputType,
+  inputType: GenInput,
   overwrite: boolean = false,
 ) {
   const filePath = path.resolve(
     dirPath,
-    `${inputType.typeName.replace("Input", ".input")}.ts`,
+    `${inputType.name.replace("Input", ".input")}.ts`,
   );
   const sourceFile = project.createSourceFile(filePath, undefined, {
     overwrite,
@@ -33,51 +31,18 @@ export function generateInputType(
   }
 
   sourceFile.addClass({
-    name: inputType.typeName,
+    name: inputType.name,
     isExported: true,
-    decorators: [
-      {
-        name: "InputType",
-        arguments: [
-          `{
-  isAbstract: true,
-  description: "${inputType.docs}",
-}`,
-        ],
-      },
-    ],
+    decorators: inputType.decorators,
     properties: inputType.fields.map<
       OptionalKind<PropertyDeclarationStructure>
-      >(field => {
+    >(field => {
       return {
         name: field.name,
-        type: field.tsType,
+        type: field.type,
         hasQuestionToken: field.isNullable,
         trailingTrivia: "\r\n",
-        decorators: [
-          ...[
-            ...(inputType.type === InputClasses.create ||
-            inputType.type === InputClasses.update ||
-            inputType.type === InputClasses.whereUnique
-              ? field.validations.map<OptionalKind<DecoratorStructure>>(v => ({
-                  name: v.name,
-                  arguments: v.text ? [v.text] : [],
-                }))
-              : []),
-          ],
-          {
-            name: "Field",
-            arguments: [
-              [
-                `_type => ${field.graphqlType},`,
-                `{`,
-                `nullable: ${field.isNullable},`,
-                `description: "${field.docs}"`,
-                `}`,
-              ].join(" "),
-            ],
-          },
-        ],
+        decorators: field.decorators,
       };
     }),
   });

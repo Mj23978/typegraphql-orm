@@ -43,9 +43,9 @@ export function mapTsToWhereType(tsType: string, isEnum: boolean = false, isList
       return isList ? "JsonListFilter" : "JsonFilter";
     default:
       if (isEnum) {
-        return isList ? `EnumList${tsType.replace("[]", "")}` : `Enum${tsType.replace("[]", "")}`
+        return isList ? `EnumList${tsType.replace("[]", "")}Filter` : `Enum${tsType.replace("[]", "")}Filter`
       }
-      return tsType.replace("[]", "")
+      return `${tsType.replace("[]", "")}Filter`
   }
 }
 
@@ -97,14 +97,6 @@ export function mapScalarToTypeGraphQLType(scalar: string) {
       throw new Error(`Unrecognized scalar type: ${scalar}`);
     }
   }
-}
-
-export function camelCase(str: string) {
-  return str[0].toLowerCase() + str.slice(1);
-}
-
-export function pascalCase(str: string): string {
-  return str[0].toUpperCase() + str.slice(1);
 }
 
 export function toUnixPath(maybeWindowsPath: string) {

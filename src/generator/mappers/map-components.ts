@@ -16,12 +16,16 @@ import {
   modelActions,
   ModelDocs,
 } from "./mapper-types";
-import { SupportedOrms } from '../config';
-import { MikroOrmText } from '../texts/mikro-orm';
+import { SupportedOrms } from "../config";
+import { MikroOrmText } from "../texts/mikro-orm";
+import { OrmText } from "../texts/interfaces";
 
-export function createArgTypes(modelName: string, modelDocs: ModelDocs): ArgType[] {
+export function createArgTypes(
+  modelName: string,
+  modelDocs: ModelDocs,
+): ArgType[] {
   const args: ArgType[] = [];
-  
+
   const whereArgField = {
     tsType: `${modelName}WhereInput`,
     isList: false,
@@ -87,7 +91,6 @@ export function createArgTypes(modelName: string, modelDocs: ModelDocs): ArgType
     isNullable: false,
   };
 
-
   const findArgs: ArgType = {
     name: `Find${modelName}Args`,
     docs: modelDocs.args?.find,
@@ -102,40 +105,27 @@ export function createArgTypes(modelName: string, modelDocs: ModelDocs): ArgType
   const updateArgs: ArgType = {
     name: `Update${modelName}Args`,
     docs: modelDocs.args?.update,
-    args: [
-      whereUniqueArgField,
-      updateArgField,
-    ],
+    args: [whereUniqueArgField, updateArgField],
   };
   const upserArgs: ArgType = {
     name: `Upsert${modelName}Args`,
     docs: modelDocs.args?.upsert,
-    args: [
-      whereUniqueArgField,
-      updateArgField,
-      createArgField,
-    ],
+    args: [whereUniqueArgField, updateArgField, createArgField],
   };
   const createArgs: ArgType = {
     name: `Create${modelName}Args`,
     docs: modelDocs.args?.create,
-    args: [
-      createArgField,
-    ],
+    args: [createArgField],
   };
   const findUniqueArgs: ArgType = {
     name: `FindUnique${modelName}Args`,
     docs: modelDocs.args?.findUnique,
-    args: [
-      whereUniqueArgField,
-    ],
+    args: [whereUniqueArgField],
   };
   const deleteManyeArgs: ArgType = {
     name: `DeleteMany${modelName}Args`,
     docs: modelDocs.args?.deleteMany,
-    args: [
-      whereArgField,
-    ],
+    args: [whereArgField],
   };
 
   args.push(
@@ -149,13 +139,19 @@ export function createArgTypes(modelName: string, modelDocs: ModelDocs): ArgType
   return args;
 }
 
-export function createActions(modelName: string, modelPlural: string, modelMiddlewares: CrudMiddleware, modelDocs: ModelDocs, type: SupportedOrms): Action[] {
+export function createActions(
+  modelName: string,
+  modelPlural: string,
+  modelMiddlewares: CrudMiddleware,
+  modelDocs: ModelDocs,
+  texts: OrmText,
+): Action[] {
   const res: Action[] = [];
-  
+
   for (const action of modelActions) {
     const actRes = new Action();
     actRes.kind = action;
-    actRes.body = getStatements(action, type).map<string>(v =>
+    actRes.body = getStatements(action, texts).map<string>(v =>
       replacOrmMessageTokens(v, {
         catchErrFunc: "catchErrorWrapper",
         type: modelName,
@@ -259,33 +255,37 @@ function getCrudReturnTypes(
   action: ModelAction,
   modelName: string,
 ): { tsType: string; graphqlType: string } {
-  let tsType = "";
-  let graphqlType = "";
-  if (action === ModelAction.create || action === ModelAction.findUnique) {
-    tsType = modelName;
-    graphqlType = modelName;
-  } else if (action === ModelAction.delete || action === ModelAction.update) {
-    tsType = "IndivitualResponse";
-    graphqlType = "IndivitualResponse";
-  } else if (action === ModelAction.findMany) {
-    tsType = modelName + "[]";
-    graphqlType = "[" + modelName + "]";
-  } else if (
-    action === ModelAction.deleteMany ||
-    action === ModelAction.updateMany
-  ) {
-    tsType = "BatchPayload";
-    graphqlType = "BatchPayload";
+  switch (action) {
+    case ModelAction.create:
+    case ModelAction.findUnique:
+      return { graphqlType: modelName, tsType: modelName };
+    case ModelAction.delete:
+    case ModelAction.update:
+      return {
+        graphqlType: "IndivitualResponse",
+        tsType: "IndivitualResponse",
+      };
+    case ModelAction.deleteMany:
+    case ModelAction.updateMany:
+      return { graphqlType: "BatchPayload", tsType: "BatchPayload" };
+    case ModelAction.findMany:
+      return { graphqlType: "[" + modelName + "]", tsType: modelName + "[]" };
+    default:
+      return { graphqlType: modelName, tsType: modelName };
   }
-  return { tsType, graphqlType };
 }
 
-export function createInputTypes(modelName: string, modelFields: Field[], modelDocs: ModelDocs): InputType[] {
+export function createInputTypes(
+  modelName: string,
+  modelFields: Field[],
+  modelDocs: ModelDocs,
+): InputType[] {
   const res: InputType[] = [];
-  
+
   for (const input of inputClasses) {
     const inpRes = new InputType();
     inpRes.name = modelName;
+    inpRes.type = input
     inpRes.docs = getInputDocs(input, modelDocs);
     inpRes.typeName = `${inpRes.name}${input}Input`;
     const inputFields: InputField[] = [];
@@ -324,7 +324,7 @@ export function createInputTypes(modelName: string, modelFields: Field[], modelD
         const res = new InputField();
         res.name = field.name;
         res.docs = field.docs;
-        res.graphqlType = field.graphqlType; 
+        res.graphqlType = field.graphqlType;
         res.tsType = field.tsType;
         res.isFloat = field.isFloat;
         res.isList = field.isList;
@@ -334,10 +334,17 @@ export function createInputTypes(modelName: string, modelFields: Field[], modelD
         inputFields.push(res);
       });
     if (input === "Create" || input === "Update" || input === "WhereUnique") {
-      inpRes.fields.push(...inputFields);
+      if (input === "Create") {
+        inpRes.fields.push(...inputFields)
+      } else {
+        inpRes.fields.push(...inputFields.map<InputField>(field => {
+          field.isNullable = true
+          return field
+        }));
+      }
     }
     if (input === "OrderBy") {
-      inpRes.hasJsonValue = false
+      inpRes.hasJsonValue = false;
       inpRes.fields = inputFields.map<InputField>(v => {
         v.tsType = `"ASC" | "DESC" | 1 | -1`;
         v.graphqlType = "SortOrder";
@@ -346,9 +353,10 @@ export function createInputTypes(modelName: string, modelFields: Field[], modelD
       });
     }
     if (input === "Where") {
-      inpRes.hasJsonValue = false
+      inpRes.hasJsonValue = false;
       inpRes.fields = inputFields.map<InputField>(v => {
-        v.graphqlType = "[" + mapTsToWhereType(v.tsType, v.isEnum, v.isList, v.isFloat) + "]";
+        v.graphqlType =
+          "[" + mapTsToWhereType(v.tsType, v.isEnum, v.isList, v.isFloat) + "]";
         v.tsType =
           mapTsToWhereType(v.tsType, v.isEnum, v.isList, v.isFloat) + "[]";
         v.isNullable = true;
@@ -362,30 +370,28 @@ export function createInputTypes(modelName: string, modelFields: Field[], modelD
   return res;
 }
 
-function getStatements(kind: ModelAction, ormType: SupportedOrms): string[] {
+function getStatements(kind: ModelAction, texts: OrmText): string[] {
   const res: string[] = [];
   if (kind === ModelAction.create) {
-    ormType === "TypeOrm" ? res.push(TypeOrmText.createRes) : res.push(MikroOrmText.createRes);
+    res.push(texts.createRes);
   }
   if (kind === ModelAction.delete) {
-    ormType === "TypeOrm" ? res.push(TypeOrmText.deleteRes) : res.push(MikroOrmText.deleteRes);
+    res.push(texts.deleteRes);
   }
   if (kind === ModelAction.deleteMany) {
-    ormType === "TypeOrm" ? res.push(TypeOrmText.deleteManyRes) : res.push(MikroOrmText.deleteManyRes);
+    res.push(texts.deleteManyRes);
   }
   if (kind === ModelAction.update) {
-    ormType === "TypeOrm" ? res.push(TypeOrmText.updateRes): res.push(MikroOrmText.updateRes);
+    res.push(texts.updateRes);
   }
   if (kind === ModelAction.updateMany) {
-    ormType === "TypeOrm" ? res.push(TypeOrmText.updateManyRes): res.push(MikroOrmText.updateManyRes);
+    res.push(texts.updateManyRes);
   }
   if (kind === ModelAction.findUnique) {
-    ormType === "TypeOrm" ? res.push(TypeOrmText.findUniqueRes): res.push(MikroOrmText.findUniqueRes);
+    res.push(texts.findUniqueRes);
   }
   if (kind === ModelAction.findMany) {
-    ormType === "TypeOrm"
-      ? res.push(TypeOrmText.findManyRes)
-      : res.push(MikroOrmText.findManyRes);
+    res.push(texts.findManyRes);
   }
   return res;
 }
