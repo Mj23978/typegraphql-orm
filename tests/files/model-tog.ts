@@ -67,7 +67,7 @@ export class TogUser {
   avatar?: string;
 
   @TogField({ index: true, type: "enum" })
-  Role: TogRole;
+  role: TogRole;
 
   @TogField()
   data?: JsonValue;

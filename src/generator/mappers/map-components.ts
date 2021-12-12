@@ -279,13 +279,14 @@ export function createInputTypes(
   modelName: string,
   modelFields: Field[],
   modelDocs: ModelDocs,
+  ormType: SupportedOrms,
 ): InputType[] {
   const res: InputType[] = [];
 
   for (const input of inputClasses) {
     const inpRes = new InputType();
     inpRes.name = modelName;
-    inpRes.type = input
+    inpRes.type = input;
     inpRes.docs = getInputDocs(input, modelDocs);
     inpRes.typeName = `${inpRes.name}${input}Input`;
     const inputFields: InputField[] = [];
@@ -335,12 +336,14 @@ export function createInputTypes(
       });
     if (input === "Create" || input === "Update" || input === "WhereUnique") {
       if (input === "Create") {
-        inpRes.fields.push(...inputFields)
+        inpRes.fields.push(...inputFields);
       } else {
-        inpRes.fields.push(...inputFields.map<InputField>(field => {
-          field.isNullable = true
-          return field
-        }));
+        inpRes.fields.push(
+          ...inputFields.map<InputField>(field => {
+            field.isNullable = true;
+            return field;
+          }),
+        );
       }
     }
     if (input === "OrderBy") {
@@ -355,10 +358,18 @@ export function createInputTypes(
     if (input === "Where") {
       inpRes.hasJsonValue = false;
       inpRes.fields = inputFields.map<InputField>(v => {
-        v.graphqlType =
-          "[" + mapTsToWhereType(v.tsType, v.isEnum, v.isList, v.isFloat) + "]";
-        v.tsType =
-          mapTsToWhereType(v.tsType, v.isEnum, v.isList, v.isFloat) + "[]";
+        v.graphqlType = `${ormType === "TypeOrm" ? "[" : ""}${mapTsToWhereType(
+          v.tsType,
+          v.isEnum,
+          v.tsType.includes("[]") ? true : v.isList,
+          v.isFloat,
+        )}${ormType === "TypeOrm" ? "]" : ""}`;
+        v.tsType = `${mapTsToWhereType(
+          v.tsType,
+          v.isEnum,
+          v.tsType.includes("[]") ? true : v.isList,
+          v.isFloat,
+        )}${ormType === "TypeOrm" ? "[]" : ""}`;
         v.isNullable = true;
         v.isList = false;
         return v;

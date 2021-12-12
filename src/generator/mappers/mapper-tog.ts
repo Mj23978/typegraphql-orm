@@ -65,7 +65,7 @@ export class MapperTog extends Mapper {
       this.emModelsIn.filter(v => res.extends === v.name).forEach(model => {
         inputFields.push(...model.fields)
       })
-      res.inputs.push(...createInputTypes(res.name, inputFields, res.docs));
+      res.inputs.push(...createInputTypes(res.name, inputFields, res.docs, this.ormType));
       res.args.push(...createArgTypes(res.name, res.docs));
       res.actions.push(
         ...createActions(
